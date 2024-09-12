@@ -1,0 +1,20 @@
+[package]
+name = "regex-tester"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+console_log = "1.0.0"
+leptos = { version = "0.6.15", features = ["csr"] }
+log = "0.4.22"
+regex = "1.10.6"
+regex-syntax = "0.8.4"
+tailwind_fuse = { version = "0.3.1", features = ["variant"] }
+wasm-bindgen = "0.2.93"

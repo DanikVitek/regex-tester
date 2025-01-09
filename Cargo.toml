@@ -10,11 +10,11 @@ codegen-units = 1
 strip = true
 
 [dependencies]
-console_error_panic_hook = "0.1.7"
-console_log = "1.0.0"
-leptos = { version = "0.6.15", features = ["csr"] }
-log = "0.4.22"
-regex = "1.10.6"
-regex-syntax = "0.8.4"
-tailwind_fuse = { version = "0.3.1", features = ["variant"] }
-wasm-bindgen = "0.2.93"
+console_error_panic_hook = "0.1"
+console_log = "1.0"
+leptos = { version = "0.7", features = ["csr"] }
+log = "0.4"
+regex = "1.11"
+regex-syntax = "0.8"
+tailwind_fuse = { version = "0.3", features = ["variant"] }
+# wasm-bindgen = "0.2"

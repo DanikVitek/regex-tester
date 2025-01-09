@@ -1,6 +1,6 @@
 use core::fmt;
 
-use leptos::*;
+use leptos::{either::either, prelude::*};
 use regex::Regex;
 use regex_syntax::hir::{Capture, Class, Hir, HirKind, Literal, Look, Properties, Repetition};
 use tailwind_fuse::*;
@@ -16,24 +16,21 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn Home() -> impl IntoView {
-    let (regex_input, set_regex_input) = create_signal(String::new());
+    let (regex_input, set_regex_input) = signal_local(String::new());
 
     view! {
         <div class="form-control mb-4">
             <label class="label">
-                <span class="label-text">{"Regex: "}</span>
+                <span class="label-text">Regex: </span>
             </label>
             <input
                 class="input input-bordered"
                 type="text"
-                prop:value=move || regex_input.get()
-                on:input=move |e| {
-                    set_regex_input.set(event_target_value(&e));
-                }
+                bind:value=(regex_input, set_regex_input)
             />
         </div>
         <div class="flex flex-col md:flex-row justify-stretch">
-            <RegexTest class="w-full" regex_input/>
+            <RegexTest class="w-full" regex_input />
             <div class="divider max-h-min md:max-h-none md:divider-horizontal md:max-w-min" />
             <HirView class="w-full" regex_input />
         </div>
@@ -43,28 +40,30 @@ fn Home() -> impl IntoView {
 #[component]
 fn RegexTest(
     #[prop(optional)] class: Option<&'static str>,
-    regex_input: ReadSignal<String>,
+    regex_input: ReadSignal<String, LocalStorage>,
 ) -> impl IntoView {
-    let regex = create_owning_memo::<Result<Regex, regex::Error>>(move |old_regex| {
-        regex_input.with(|input| {
-            old_regex
-                .filter(|old_result| match old_result {
-                    Ok(old_regex) => old_regex.as_str() == input,
-                    Err(regex::Error::Syntax(old_input)) => old_input == input,
-                    Err(regex::Error::CompiledTooBig(_)) => false,
-                    Err(err) => unimplemented!("unsupported error variant: {err:?}"),
-                })
-                .map(|old_regex| (old_regex, false))
-                .unwrap_or_else(|| (Regex::new(input), true))
-        })
+    let regex = Memo::<Result<Regex, regex::Error>>::new_owning(move |old_regex| {
+        old_regex
+            .filter(|old_result| match old_result {
+                Ok(old_regex) => *old_regex.as_str() == *regex_input.read(),
+                Err(regex::Error::Syntax(old_input)) => *old_input == *regex_input.read(),
+                Err(regex::Error::CompiledTooBig(_)) => false,
+                Err(err) => unimplemented!("unsupported error variant: {err:?}"),
+            })
+            .map(|old_regex| (old_regex, false))
+            .unwrap_or_else(|| (Regex::new(&regex_input.read()), true))
     });
 
-    let (test_input, set_test_input) = create_signal(String::new());
-    let is_match =
-        move || with!(|regex, test_input| regex.as_ref().is_ok_and(|r| r.is_match(test_input)));
+    let (test_input, set_test_input) = signal_local(String::new());
+    let is_match = move || {
+        regex
+            .read()
+            .as_ref()
+            .is_ok_and(|r| r.is_match(&test_input.read()))
+    };
 
     view! {{move || regex.with(|regex| {
-        match regex {
+        either!(regex,
             Ok(_) => view! {
                 <div id="test" class=tw_merge!("flex flex-col gap-2", class)>
                     <textarea
@@ -79,21 +78,21 @@ fn RegexTest(
                         {is_match}
                     </div>
                 </div>
-            }.into_any(),
+            },
             Err(err) => view! {
                 <pre class=tw_merge!("text-error", class)>{err.to_string()}</pre>
-            }.into_any(),
-        }
+            },
+        )
     })}}
 }
 
 #[component]
 fn HirView(
     #[prop(optional)] class: Option<&'static str>,
-    regex_input: ReadSignal<String>,
+    regex_input: ReadSignal<String, LocalStorage>,
 ) -> impl IntoView {
-    let hir = create_memo::<Result<Hir, regex_syntax::Error>>(move |_| {
-        regex_input.with(|input| regex_syntax::parse(input))
+    let hir = Memo::<Result<Hir, regex_syntax::Error>>::new(move |_| {
+        regex_syntax::parse(&regex_input.read())
     });
 
     view! {{move || hir.with(|hir| match hir {
@@ -112,7 +111,7 @@ fn HirView(
 struct HirDebug<'a>(&'a Hir);
 
 impl fmt::Debug for HirDebug<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let box_dbg_kind: Box<dyn fmt::Debug> = match self.0.kind() {
             HirKind::Empty => {
                 struct EmptyDebug;
@@ -210,7 +209,7 @@ impl fmt::Debug for HirDebug<'_> {
 
         struct HirPropertiesDebug<'a>(&'a Properties);
         impl fmt::Debug for HirPropertiesDebug<'_> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.debug_struct("Properties")
                     .field("minimum_len", &self.0.minimum_len())
                     .field("maximum_len", &self.0.maximum_len())

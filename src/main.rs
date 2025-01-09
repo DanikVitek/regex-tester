@@ -1,7 +1,8 @@
 mod app;
 
-use leptos::{mount_to_body, view};
-use app::App;
+use leptos::prelude::{mount_to_body, view};
+
+use crate::app::App;
 
 fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
@@ -9,5 +10,5 @@ fn main() {
 
     log::debug!("csr mode - mounting to body");
 
-    mount_to_body(|| view!{ <App /> });
+    mount_to_body(|| view! { <App /> });
 }

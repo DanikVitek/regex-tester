@@ -14,7 +14,7 @@ pub fn App() -> impl IntoView {
         <main class="px-4 pt-4">
             <div class="form-control w-full mb-4">
                 <label class="label" for="regex">
-                    <span class="label-text">{"Regex:"}</span>
+                    <span class="label-text">"Regex:"</span>
                 </label>
                 <div class="flex flex-row gap-4 w-full items-center">
                     <textarea
@@ -28,7 +28,7 @@ pub fn App() -> impl IntoView {
             </div>
             <div class="flex flex-col md:flex-row justify-stretch">
                 <RegexTest class="w-full" regex_input settings />
-                <div class="divider max-h-min md:max-h-none md:divider-horizontal md:max-w-min" />
+                <div class="divider max-h-min max-w-none md:divider-horizontal md:max-h-none md:max-w-min" />
                 <HirView class="w-full" regex_input settings />
             </div>
         </main>
@@ -42,7 +42,7 @@ fn Settings(settings: Store<Settings>) -> impl IntoView {
             <summary class="btn btn-square btn-ghost">
                 <SettingsIcon aria_label="Settings" />
             </summary>
-            <div class="form-control menu dropdown-content bg-base-300 rounded-box z-[1] mt-4 p-2 w-56 shadow">
+            <div class="form-control menu dropdown-content bg-base-300 rounded-box z-[5] mt-4 p-2 w-56 shadow">
                 <SettingsFlag label="Case-insensitive" value=settings.case_insensitive() />
                 <SettingsFlag label="Multi-line" value=settings.multi_line() />
                 <SettingsFlag label="Dot matches new line" value=settings.dot_matches_new_line() />
@@ -126,7 +126,7 @@ fn RegexTest(
             <div id="test" class=tw_join!("flex flex-col gap-2", class)>
                 <div class="form-control">
                     <label class="label" for="test-input">
-                        <span class="label-text">{"Test input:"}</span>
+                        <span class="label-text">"Test input:"</span>
                     </label>
                     <textarea
                         id="test-input"
@@ -136,7 +136,7 @@ fn RegexTest(
                     />
                 </div>
                 <div>
-                    <span class="font-bold">{"Is match: "}</span>
+                    <span class="font-bold">"Is match: "</span>
                     {is_match}
                 </div>
             </div>
@@ -153,7 +153,7 @@ fn HirView(
     regex_input: ReadSignal<String>,
     settings: Store<Settings>,
 ) -> impl IntoView {
-    let hir = Memo::<Result<Hir, regex_syntax::Error>>::new(move |_| {
+    let result = Memo::<Result<Hir, regex_syntax::Error>>::new(move |_| {
         regex_syntax::ParserBuilder::new()
             .case_insensitive(settings.case_insensitive().get())
             .multi_line(settings.multi_line().get())
@@ -165,15 +165,67 @@ fn HirView(
             .parse(&regex_input.read())
     });
 
-    view! {{move || either!(&*hir.read(),
-        Ok(hir) => view! {
-            <div id="hir" class=tw_join!("flex flex-col gap-2", class)>
-                <pre>{hir.to_string()}</pre>
-                <pre>{format!("{:#?}", HirDebug(hir))}</pre>
-            </div>
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum Tab {
+        EquivalentRegex,
+        HirAst,
+    }
+
+    #[derive(TwVariant)]
+    #[tw(class = "tab")]
+    enum TabClass {
+        #[tw(default, class = "[--tab-border-color:transparent]")]
+        Inactive,
+        #[tw(class = "tab-active [--tab-border-color:oklch(var(--n))]")]
+        Active,
+    }
+
+    impl From<bool> for TabClass {
+        fn from(active: bool) -> Self {
+            if active {
+                TabClass::Active
+            } else {
+                TabClass::Inactive
+            }
+        }
+    }
+
+    view! {{move || either!(result.read().is_ok(),
+        true => {
+            let (tab, set_tab) = signal(Tab::EquivalentRegex);
+            view! {
+                <div class=tw_join!("grid", class)>
+                    <div id="hir" role="tablist" class="tabs tabs-lifted z-10 -mb-[var(--tab-border)]">
+                        <button
+                            role="tab"
+                            class={move || TabClass::from(tab.get() == Tab::EquivalentRegex).as_class().to_owned()}
+                            on:click={move |_| set_tab.set(Tab::EquivalentRegex)}
+                        >"Equivalent Regex"</button>
+                        <button
+                            role="tab"
+                            class={move || TabClass::from(tab.get() == Tab::HirAst).as_class().to_owned()}
+                            on:click={move |_| set_tab.set(Tab::HirAst)}
+                        >"HIR AST"</button>
+                        <div class="tab [--tab-border-color:transparent]" />
+                    </div>
+                    <div
+                        class="bg-base-100 border border-neutral rounded-b-box rounded-se-box p-6"
+                        class:rounded-ss-box={move || tab.get() != Tab::EquivalentRegex}
+                    >
+                        <Show when={move || tab.get() == Tab::EquivalentRegex}>
+                            <pre>{result.read().as_ref().unwrap().to_string()}</pre>
+                        </Show>
+                        <Show when={move || tab.get() == Tab::HirAst}>
+                            <pre>{format!("{:#?}", HirDebug(result.read().as_ref().unwrap()))}</pre>
+                        </Show>
+                    </div>
+                </div>
+            }
         },
-        Err(err) => view! {
-            <pre class=tw_join!("text-error", class)>{err.to_string()}</pre>
+        false => view! {
+            <pre class=tw_join!("text-error", class)>
+                {result.read().as_ref().unwrap_err().to_string()}
+            </pre>
         },
     )}}
 }

@@ -11,9 +11,8 @@ strip = true
 
 [dependencies]
 console_error_panic_hook = "0.1"
-console_log = "1.0"
 leptos = { version = "0.7", features = ["csr"] }
-log = "0.4"
+reactive_stores = "0.1"
 regex = "1.11"
 regex-syntax = "0.8"
 tailwind_fuse = { version = "0.3", features = ["variant"] }

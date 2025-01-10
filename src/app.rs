@@ -165,9 +165,10 @@ fn HirView(
             .parse(&regex_input.read())
     });
 
-    #[derive(Clone, Copy, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq, Default)]
     enum Tab {
         EquivalentRegex,
+        #[default]
         HirAst,
     }
 
@@ -192,7 +193,7 @@ fn HirView(
 
     view! {{move || either!(result.read().is_ok(),
         true => {
-            let (tab, set_tab) = signal(Tab::EquivalentRegex);
+            let (tab, set_tab) = signal(Tab::default());
             view! {
                 <div class=tw_join!("grid", class)>
                     <div id="hir" role="tablist" class="tabs tabs-lifted z-10 -mb-[var(--tab-border)]">
